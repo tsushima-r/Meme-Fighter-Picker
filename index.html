@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<title>対戦キャラ抽選ゲーム（重複なし抽選付き）</title>
+<style>
+  body {
+    font-family: 'Segoe UI', sans-serif;
+    margin: 0;
+    background: linear-gradient(to bottom right, #ececec, #f7f7f7);
+    color: #333;
+  }
+
+  h1 {
+    margin-top: 0;
+    font-size: 1.5rem;
+  }
+
+  .section {
+    max-width: 900px;
+    margin: 40px auto;
+    padding: 30px;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.05);
+    text-align: center;
+  }
+
+  .character-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+    gap: 15px;
+    justify-items: center;
+    margin-top: 20px;
+  }
+
+  .character-grid img {
+    width: 100px;
+    cursor: pointer;
+    border: 3px solid transparent;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+  }
+
+  .character-grid img.selected {
+    border: 4px solid red; /* 太くて赤い枠 */
+    transform: scale(1.05);
+  }
+
+  .hidden {
+    display: none;
+  }
+
+  #battleResult {
+    margin-top: 30px;
+    font-size: 24px;
+    font-weight: bold;
+  }
+
+  #battleResult img {
+    width: 150px;
+    vertical-align: middle;
+    margin: 0 20px;
+  }
+
+  button {
+    margin: 15px 8px 0;
+    padding: 12px 24px;
+    font-size: 16px;
+    border: none;
+    background-color: #4CAF50;
+    color: white;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+  }
+
+  button:hover {
+    background-color: #45a049;
+  }
+</style>
+</head>
+<body>
+
+  <!-- 1P選択 -->
+  <div id="player1Area" class="section">
+    <h1>1Pのキャラを選んでください（最大5体）</h1>
+    <div class="character-grid" id="player1Grid"></div>
+    <button id="toPlayer2">2P選択へ進む</button>
+  </div>
+
+  <!-- 2P選択 -->
+  <div id="player2Area" class="section hidden">
+    <h1>2Pのキャラを選んでください（最大5体）</h1>
+    <div class="character-grid" id="player2Grid"></div>
+    <button id="toBattle">対戦開始</button>
+  </div>
+
+  <!-- 対戦結果 -->
+  <div id="battleArea" class="section hidden">
+    <h1>対戦カード</h1>
+    <div id="battleResult"></div>
+    <button id="reroll">もう一度抽選する</button>
+    <button id="resetGame">リセットして最初から</button>
+  </div>
+
+  <!-- BGM -->
+  <audio id="battleBGM" src="jaann.mp3" preload="auto"></audio>
+
+<script>
+  const characterCount = 10;
+  const maxSelections = 5;
+
+  const player1Selected = [];
+  const player2Selected = [];
+
+  const player1Drawn = [];
+  const player2Drawn = [];
+
+  const p1Grid = document.getElementById("player1Grid");
+  const p2Grid = document.getElementById("player2Grid");
+  const p1Area = document.getElementById("player1Area");
+  const p2Area = document.getElementById("player2Area");
+  const battleArea = document.getElementById("battleArea");
+  const battleResult = document.getElementById("battleResult");
+  const battleBGM = document.getElementById("battleBGM");
+
+  function createCharacterGrid(container, selectedArray) {
+    container.innerHTML = "";
+    for(let i=1; i<=characterCount; i++) {
+      const img = document.createElement("img");
+      img.src = `images/char${i}.png`;
+      img.alt = `キャラ${i}`;
+      img.dataset.id = i;
+
+      img.addEventListener("click", () => {
+        const id = parseInt(img.dataset.id);
+        const index = selectedArray.indexOf(id);
+        if(index > -1) {
+          selectedArray.splice(index, 1);
+          img.classList.remove("selected");
+        } else {
+          if(selectedArray.length >= maxSelections) {
+            alert("5体までしか選べません");
+            return;
+          }
+          selectedArray.push(id);
+          img.classList.add("selected");
+        }
+      });
+
+      if(selectedArray.includes(i)) {
+        img.classList.add("selected");
+      }
+
+      container.appendChild(img);
+    }
+  }
+
+  function pickUniqueRandom(selectedArray, drawnArray) {
+    const notDrawn = selectedArray.filter(id => !drawnArray.includes(id));
+    if(notDrawn.length === 0) {
+      drawnArray.length = 0;
+      return pickUniqueRandom(selectedArray, drawnArray);
+    }
+    const idx = Math.floor(Math.random() * notDrawn.length);
+    const pick = notDrawn[idx];
+    drawnArray.push(pick);
+    return pick;
+  }
+
+  function doBattle() {
+    battleResult.innerHTML = "";
+
+    const p1Char = pickUniqueRandom(player1Selected, player1Drawn);
+    const p2Char = pickUniqueRandom(player2Selected, player2Drawn);
+
+    const p1Img = document.createElement("img");
+    p1Img.src = `images/char${p1Char}.png`;
+    p1Img.alt = `1Pキャラ${p1Char}`;
+
+    const vsText = document.createElement("span");
+    vsText.textContent = " VS ";
+    vsText.style.fontSize = "32px";
+    vsText.style.fontWeight = "bold";
+
+    const p2Img = document.createElement("img");
+    p2Img.src = `images/char${p2Char}.png`;
+    p2Img.alt = `2Pキャラ${p2Char}`;
+
+    battleResult.appendChild(p1Img);
+    battleResult.appendChild(vsText);
+    battleResult.appendChild(p2Img);
+
+    battleBGM.currentTime = 0;
+    battleBGM.play();
+  }
+
+  createCharacterGrid(p1Grid, player1Selected);
+
+  document.getElementById("toPlayer2").addEventListener("click", () => {
+    if(player1Selected.length === 0) {
+      alert("1Pは最低1体選んでください");
+      return;
+    }
+    p1Area.classList.add("hidden");
+    p2Area.classList.remove("hidden");
+    createCharacterGrid(p2Grid, player2Selected);
+  });
+
+  document.getElementById("toBattle").addEventListener("click", () => {
+    if(player2Selected.length === 0) {
+      alert("2Pは最低1体選んでください");
+      return;
+    }
+    p2Area.classList.add("hidden");
+    battleArea.classList.remove("hidden");
+    doBattle();
+  });
+
+  document.getElementById("reroll").addEventListener("click", () => {
+    doBattle();
+  });
+
+  document.getElementById("resetGame").addEventListener("click", () => {
+    player1Selected.length = 0;
+    player2Selected.length = 0;
+    player1Drawn.length = 0;
+    player2Drawn.length = 0;
+    battleArea.classList.add("hidden");
+    p1Area.classList.remove("hidden");
+    createCharacterGrid(p1Grid, player1Selected);
+  });
+</script>
+
+</body>
+</html>
